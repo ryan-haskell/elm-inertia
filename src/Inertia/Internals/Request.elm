@@ -1,4 +1,4 @@
-module Inertia.HttpRequest exposing (Request, map)
+module Inertia.Internals.Request exposing (Request, map)
 
 import Http
 import Json.Decode

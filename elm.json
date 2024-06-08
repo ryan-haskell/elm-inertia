@@ -5,10 +5,8 @@
     "license": "BSD-3-Clause",
     "version": "1.0.0",
     "exposed-modules": [
-        "Inertia.Program",
-        "Inertia.Effect",
-        "Inertia.HttpRequest",
-        "Inertia.PageData"
+        "Inertia",
+        "Inertia.Effect"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
