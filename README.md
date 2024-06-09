@@ -1,6 +1,6 @@
 # **@ryan-haskell/elm-inertia**
 
-A package for using Elm with InertiaJS (Laravel, Rails, and more!)
+A package for using Elm with [InertiaJS](https://inertiajs.com/) (Laravel, Rails, and more!)
 
 ## **Local installation**
 
