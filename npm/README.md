@@ -90,7 +90,7 @@ elm-inertia init
 Create a new page in the `src/Page` folder.
 
 ```sh
-elm-inertia add Dashboard/Index
+elm-inertia add Organizations/Edit
 ```
 
 For convenience, this also runs `generate` after the page is created.
