@@ -107,9 +107,9 @@ elm-inertia generate
 
 ### **How do I delete pages?** 
 
-To remove a page, simply delete the file, and rerun the `generate` command below!
+To remove a page, simply delete the file, and rerun the `elm-inertia generate` command!
 
 ## Additional resources
 
 - [PingCRM](https://github.com/ryan-haskell/pingcrm-elm) - Complete application using Elm with Laravel
-- [Source code](https://github.com/ryan-haskell/elm-inertia)
+- [Source code](https://github.com/ryan-haskell/elm-inertia) - Code for the Elm package and NPM module
