@@ -5,7 +5,7 @@ module Inertia exposing
     , PageObject
     )
 
-{-| This module allows you to create Elm applications that work with Inertia.js.
+{-| This module allows you to create Elm applications that work with Inertia.
 
 
 # **Getting started**
@@ -14,7 +14,7 @@ module Inertia exposing
 ### **Recommended: Using the starter kit**
 
 For convenience, the [@ryan-haskell/elm-inertia-starter](https://github.com/ryan-haskell/elm-inertia-starter)
-template has everything you need for dropping Elm into an Inertia.js supported project.
+template has everything you need for dropping Elm into an Inertia supported project.
 
 It follows the exact documentation below, to save you the manual work.
 

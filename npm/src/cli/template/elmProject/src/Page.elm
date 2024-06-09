@@ -17,7 +17,7 @@ type Model
     = Model_Dashboard { props : Page.Dashboard.Props, model : Page.Dashboard.Model }
     | Model_Login { props : Page.Login.Props, model : Page.Login.Model }
     | Model_Error404 { model : Page.Error404.Model }
-    | Model_Error500 { info : Page.Error500.Info, model : Page.Error500.Model }
+    | Model_Error500 { error : Json.Decode.Error, model : Page.Error500.Model }
 
 
 type Msg
@@ -89,7 +89,7 @@ update shared url pageObject msg model =
         ( Msg_Error500 pageMsg, Model_Error500 page ) ->
             let
                 ( pageModel, pageEffect ) =
-                    Page.Error500.update shared url page.info pageMsg page.model
+                    Page.Error500.update shared url page.error pageMsg page.model
             in
             ( Model_Error500 { page | model = pageModel }
             , Effect.map Msg_Error500 pageEffect
@@ -115,7 +115,7 @@ subscriptions shared url pageObject model =
                 |> Sub.map Msg_Error404
 
         Model_Error500 page ->
-            Page.Error500.subscriptions shared url page.info page.model
+            Page.Error500.subscriptions shared url page.error page.model
                 |> Sub.map Msg_Error500
 
 
@@ -135,7 +135,7 @@ view shared url pageObject model =
                 |> mapDocument Msg_Error404
 
         Model_Error500 page ->
-            Page.Error500.view shared url page.info page.model
+            Page.Error500.view shared url page.error page.model
                 |> mapDocument Msg_Error500
 
 
@@ -181,18 +181,6 @@ mapDocument fn doc =
     }
 
 
-onPropsChangedForPage :
-    Shared.Model
-    -> Url
-    -> PageObject Value
-    -> { props : props, model : model }
-    ->
-        { decoder : Json.Decode.Decoder props
-        , onPropsChanged : Shared.Model -> Url -> props -> model -> ( model, Effect msg )
-        , toModel : { props : props, model : model } -> Model
-        , toMsg : msg -> Msg
-        }
-    -> ( Model, Effect Msg )
 onPropsChangedForPage shared url pageObject page options =
     case Json.Decode.decodeValue options.decoder pageObject.props of
         Ok props ->
@@ -206,29 +194,14 @@ onPropsChangedForPage shared url pageObject page options =
 
         Err jsonDecodeError ->
             let
-                info : Page.Error500.Info
-                info =
-                    { pageObject = pageObject, error = jsonDecodeError }
-
                 ( pageModel, pageEffect ) =
-                    Page.Error500.init shared url info
+                    Page.Error500.init shared url jsonDecodeError
             in
-            ( Model_Error500 { info = info, model = pageModel }
+            ( Model_Error500 { error = jsonDecodeError, model = pageModel }
             , Effect.map Msg_Error500 pageEffect
             )
 
 
-initForPage :
-    Shared.Model
-    -> Url
-    -> PageObject Value
-    ->
-        { decoder : Json.Decode.Decoder props
-        , init : Shared.Model -> Url -> props -> ( model, Effect msg )
-        , toModel : { props : props, model : model } -> Model
-        , toMsg : msg -> Msg
-        }
-    -> ( Model, Effect Msg )
 initForPage shared url pageObject options =
     case Json.Decode.decodeValue options.decoder pageObject.props of
         Ok props ->
@@ -242,13 +215,9 @@ initForPage shared url pageObject options =
 
         Err jsonDecodeError ->
             let
-                info : Page.Error500.Info
-                info =
-                    { pageObject = pageObject, error = jsonDecodeError }
-
                 ( pageModel, pageEffect ) =
-                    Page.Error500.init shared url info
+                    Page.Error500.init shared url jsonDecodeError
             in
-            ( Model_Error500 { info = info, model = pageModel }
+            ( Model_Error500 { error = jsonDecodeError, model = pageModel }
             , Effect.map Msg_Error500 pageEffect
             )
