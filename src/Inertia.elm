@@ -11,10 +11,10 @@ module Inertia exposing
 # **Getting started**
 
 
-### **Recommended: Using the starter kit**
+### **Recommended: Using the NPM module**
 
-For convenience, the [@ryan-haskell/elm-inertia-starter](https://github.com/ryan-haskell/elm-inertia-starter)
-template has everything you need for dropping Elm into an Inertia supported project.
+For convenience, the [elm-inertia](https://www.npmjs.com/package/elm-inertia) package has
+everything you need for dropping Elm into an Inertia supported project.
 
 It follows the exact documentation below, to save you the manual work.
 
