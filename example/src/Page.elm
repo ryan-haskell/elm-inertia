@@ -1,9 +1,9 @@
 module Page exposing (Model, Msg, init, onPropsChanged, subscriptions, update, view)
 
 import Browser exposing (Document)
+import Effect exposing (Effect)
 import Html
 import Inertia exposing (PageObject)
-import Inertia.Effect as Effect exposing (Effect)
 import Json.Decode exposing (Value)
 import Shared
 import Url exposing (Url)

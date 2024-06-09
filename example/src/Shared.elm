@@ -1,8 +1,8 @@
 module Shared exposing (Model, Msg(..), init, subscriptions, update)
 
 import Browser.Events
+import Effect exposing (Effect)
 import Http
-import Inertia.Effect as Effect exposing (Effect)
 import Interop exposing (Flags)
 import Json.Decode
 import Url exposing (Url)

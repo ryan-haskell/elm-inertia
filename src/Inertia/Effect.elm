@@ -6,13 +6,39 @@ module Inertia.Effect exposing
     , request
     , pushUrl, replaceUrl, back, forward
     , load, reload, reloadAndSkipCache
-    , map, switch
+    , custom
+    , map
+    , switch
     )
 
 {-| This module provides a default `Effect` implementation. It comes with helpers
 for working with Inertia HTTP requests.
 
-See [Inertia.EffectModule](./Inertia#EffectModule) for a usage example within the context of a program.
+Most applications will want custom effects, which can be specified using [Inertia.Effect.custom](#custom)
+
+Rather than using `Inertia.Effect` directly, we recommend creating your own `Effect` module, and using this module as a starting point:
+
+    -- module Effect exposing (Effect, ...)
+    --     ( Effect
+    --     , none, batch
+    --     , ...
+    --     )
+
+
+    import Inertia.Effect
+
+    type alias Effect msg =
+        Inertia.Effect.Effect () msg
+
+    none : Effect msg
+    none =
+        Inertia.Effect.none
+
+    batch : List (Effect msg) -> Effect msg
+    batch effects =
+        Inertia.Effect.batch effects
+
+    -- ...
 
 
 # **Effects**
@@ -45,13 +71,24 @@ different `"component"`.
 @docs load, reload, reloadAndSkipCache
 
 
+# **Defining custom effects**
+
+@docs custom
+
+
 # **Transforming effects**
 
-@docs map, switch
+@docs map
+
+
+# **Testing effects**
+
+@docs switch
 
 -}
 
 import Http
+import Inertia.Internals.Effect as Effect
 import Inertia.Internals.Request exposing (Request)
 import Json.Decode
 import Json.Encode
@@ -65,18 +102,28 @@ side effects that are fully testable with testing tools like
 [elm-program-test](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/).
 
 -}
-type Effect msg
-    = None
-    | Batch (List (Effect msg))
-    | SendMsg msg
-    | Http (Request msg)
-    | PushUrl String
-    | ReplaceUrl String
-    | Back Int
-    | Forward Int
-    | Load String
-    | Reload
-    | ReloadAndSkipCache
+type alias Effect custom msg =
+    Effect.Effect custom msg
+
+
+{-| Allows you to define custom effects for your application.
+
+    import Inertia.Effect
+
+    type alias Effect msg =
+        Inertia.Effect.Effect (CustomEffect msg) msg
+
+    type CustomEffect msg
+        = SendDelayedMsg Float msg
+
+    sendDelayedMsg : Float -> msg -> Effect msg
+    sendDelayedMsg delay msg =
+        Inertia.Effect.custom (SendDelayedMsg delay msg)
+
+-}
+custom : custom -> Effect custom msg
+custom props =
+    Effect.Custom props
 
 
 
@@ -86,14 +133,14 @@ type Effect msg
 {-| Perform no side effects. Commonly used with `init` and `update` to indicate
 no side effects should occur.
 
-    doNothing : Effect msg
+    doNothing : Effect custom msg
     doNothing =
         Effect.none
 
 -}
-none : Effect msg
+none : Effect custom msg
 none =
-    None
+    Effect.None
 
 
 {-| Perform multiple effects at once.
@@ -106,9 +153,9 @@ none =
             ]
 
 -}
-batch : List (Effect msg) -> Effect msg
+batch : List (Effect custom msg) -> Effect custom msg
 batch effects =
-    Batch effects
+    Effect.Batch effects
 
 
 
@@ -125,9 +172,9 @@ batch effects =
         Effect.sendMsg (ReportError 404)
 
 -}
-sendMsg : msg -> Effect msg
+sendMsg : msg -> Effect custom msg
 sendMsg msg =
-    SendMsg msg
+    Effect.SendMsg msg
 
 
 
@@ -156,7 +203,7 @@ get :
     , decoder : Json.Decode.Decoder props
     , onResponse : Result Http.Error props -> msg
     }
-    -> Effect msg
+    -> Effect custom msg
 get options =
     let
         decoder : Json.Decode.Decoder msg
@@ -168,7 +215,7 @@ get options =
         onFailure httpError =
             options.onResponse (Err httpError)
     in
-    Http
+    Effect.Http
         { method = "GET"
         , url = options.url
         , body = Http.emptyBody
@@ -225,7 +272,7 @@ post :
     , decoder : Json.Decode.Decoder props
     , onResponse : Result Http.Error props -> msg
     }
-    -> Effect msg
+    -> Effect custom msg
 post options =
     let
         decoder : Json.Decode.Decoder msg
@@ -237,7 +284,7 @@ post options =
         onFailure httpError =
             options.onResponse (Err httpError)
     in
-    Http
+    Effect.Http
         { method = "POST"
         , url = options.url
         , body = options.body
@@ -301,7 +348,7 @@ put :
     , decoder : Json.Decode.Decoder props
     , onResponse : Result Http.Error props -> msg
     }
-    -> Effect msg
+    -> Effect custom msg
 put options =
     let
         decoder : Json.Decode.Decoder msg
@@ -313,7 +360,7 @@ put options =
         onFailure httpError =
             options.onResponse (Err httpError)
     in
-    Http
+    Effect.Http
         { method = "PUT"
         , url = options.url
         , body = options.body
@@ -372,7 +419,7 @@ patch :
     , decoder : Json.Decode.Decoder props
     , onResponse : Result Http.Error props -> msg
     }
-    -> Effect msg
+    -> Effect custom msg
 patch options =
     let
         decoder : Json.Decode.Decoder msg
@@ -384,7 +431,7 @@ patch options =
         onFailure httpError =
             options.onResponse (Err httpError)
     in
-    Http
+    Effect.Http
         { method = "PATCH"
         , url = options.url
         , body = options.body
@@ -415,7 +462,7 @@ delete :
     , decoder : Json.Decode.Decoder props
     , onResponse : Result Http.Error props -> msg
     }
-    -> Effect msg
+    -> Effect custom msg
 delete options =
     let
         decoder : Json.Decode.Decoder msg
@@ -427,7 +474,7 @@ delete options =
         onFailure httpError =
             options.onResponse (Err httpError)
     in
-    Http
+    Effect.Http
         { method = "DELETE"
         , url = options.url
         , body = Http.emptyBody
@@ -482,9 +529,9 @@ request :
     , timeout : Maybe Float
     , tracker : Maybe String
     }
-    -> Effect msg
+    -> Effect custom msg
 request options =
-    Http options
+    Effect.Http options
 
 
 
@@ -495,110 +542,111 @@ request options =
 
 This will add a new entry to the browser history.
 
-    gotoDashboardPage : Effect msg
+    gotoDashboardPage : Effect custom msg
     gotoDashboardPage =
         Effect.pushUrl "/dashboard"
 
 See [Browser.Navigation.pushUrl](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#pushUrl).
 
 -}
-pushUrl : String -> Effect msg
+pushUrl : String -> Effect custom msg
 pushUrl url =
-    PushUrl url
+    Effect.PushUrl url
 
 
 {-| Change the URL, but do not trigger a page load.
 
 This will not add a new entry to the browser history.
 
-    gotoSettingsPage : Effect msg
+    gotoSettingsPage : Effect custom msg
     gotoSettingsPage =
         Effect.replaceUrl "/settings"
 
 See [Browser.Navigation.replaceUrl](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl)
 
 -}
-replaceUrl : String -> Effect msg
+replaceUrl : String -> Effect custom msg
 replaceUrl url =
-    ReplaceUrl url
+    Effect.ReplaceUrl url
 
 
 {-| Go back some number of pages. So back 1 goes back one page, and back 2 goes back two pages.
 
-    goBack : Effect msg
+    goBack : Effect custom msg
     goBack =
         Effect.back 1
 
 See [Browser.Navigation.back](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#back)
 
 -}
-back : Int -> Effect msg
+back : Int -> Effect custom msg
 back int =
-    Back int
+    Effect.Back int
 
 
 {-| Go forward some number of pages. So forward 1 goes forward one page, and forward 2 goes forward two pages. If there are no more pages in the future, this will do nothing.
 
-    goForwardThreePages : Effect msg
+    goForwardThreePages : Effect custom msg
     goForwardThreePages =
         Effect.forward 3
 
 See [Browser.Navigation.forward](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#forward)
 
 -}
-forward : Int -> Effect msg
+forward : Int -> Effect custom msg
 forward int =
-    Forward int
+    Effect.Forward int
 
 
 {-| Leave the current page and load the given URL. **This always results in a page load**, even if the provided URL is the same as the current one.
 
-    loadDashboard : Effect msg
+    loadDashboard : Effect custom msg
     loadDashboard =
         Effect.load "/dashboard"
 
 See [Browser.Navigation.load](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#load)
 
 -}
-load : String -> Effect msg
+load : String -> Effect custom msg
 load url =
-    Load url
+    Effect.Load url
 
 
 {-| Reload the current page. **This always results in a page load!**
 
-    reloadCurrentPage : Effect msg
+    reloadCurrentPage : Effect custom msg
     reloadCurrentPage =
         Effect.reload
 
 See [Browser.Navigation.reload](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#reload)
 
 -}
-reload : Effect msg
+reload : Effect custom msg
 reload =
-    Reload
+    Effect.Reload
 
 
 {-| Reload the current page without using the browser cache. **This always results in a page load!**
 
-    hardReloadCurrentPage : Effect msg
+    hardReloadCurrentPage : Effect custom msg
     hardReloadCurrentPage =
         Effect.reloadAndSkipCache
 
 See [Browser.Navigation.reloadAndSkipCache](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#reloadAndSkipCache)
 
 -}
-reloadAndSkipCache : Effect msg
+reloadAndSkipCache : Effect custom msg
 reloadAndSkipCache =
-    ReloadAndSkipCache
+    Effect.ReloadAndSkipCache
 
 
 
 -- TRANSFORMING EFFECTS
 
 
-{-| Transform an effect of one type into another. Common when working with pages
+{-| Transform an effect of one type into another. Common when working with effects from pages.
 
+    import Effect exposing (Effect)
     import Page.Dashboard
 
     type Msg
@@ -612,63 +660,61 @@ reloadAndSkipCache =
     effect =
         Effect.map Dashboard dashboardPageEffect
 
+**Rather than using `Inertia.Effect.map` directly**, you'll want to create
+your own map function in your custom `Effect` module.
+
+Here's an example of implementing your own `Effect.map` when you're using a `CustomEffect`:
+
+    import Inertia.Effect
+
+    type alias Effect msg =
+        Inertia.Effect.Effect (CustomEffect msg) msg
+
+    map : (a -> b) -> Effect a -> Effect b
+    map fn effect =
+        Inertia.Effect.map (mapCustomEffect fn) fn
+
+    type CustomEffect msg
+        = SendDelayedMsg Float msg
+
+    mapCustomEffect : (a -> b) -> CustomEffect a -> CustomEffect b
+    mapCustomEffect fn customEffect =
+        case customEffect of
+            SendDelayedMsg delay msg ->
+                SendDelayedMsg delay (fn msg)
+
 -}
-map : (a -> b) -> Effect a -> Effect b
-map fn effect =
-    case effect of
-        None ->
-            None
-
-        Batch effects ->
-            Batch (List.map (map fn) effects)
-
-        SendMsg msg ->
-            SendMsg (fn msg)
-
-        Http req ->
-            Http (Inertia.Internals.Request.map fn req)
-
-        PushUrl url ->
-            PushUrl url
-
-        ReplaceUrl url ->
-            ReplaceUrl url
-
-        Back int ->
-            Back int
-
-        Forward int ->
-            Forward int
-
-        Load url ->
-            Load url
-
-        Reload ->
-            Reload
-
-        ReloadAndSkipCache ->
-            ReloadAndSkipCache
+map :
+    (custom1 -> custom2)
+    -> (msg1 -> msg2)
+    -> Effect custom1 msg1
+    -> Effect custom2 msg2
+map customFn fn effect =
+    Effect.map customFn fn effect
 
 
 {-| This function allows you to pattern match on the `Effect` type, without exposing the custom type variants.
 
-Particularly helpful if you need to convert an `Effect Msg` into a `Cmd Msg`.
+It was created for folks that need to convert the `Effect Msg` into a simulated effect for use
+with [elm-program-test](https://package.elm-lang.org/packages/avh4/elm-program-test/latest/ProgramTest#SimulatedEffect).
 
-    toCommand : Effect Msg -> Cmd Msg
-    toCommand effect =
+    import SimulatedEffect.Cmd
+
+    toSimulatedEffect : Effect Msg -> ProgramTest.SimulatedEffect Msg
+    toSimulatedEffect effect =
         Effect.switch effect
             { onNone = Cmd.none
-            , onBatch = Cmd.batch (List.map toCommand effects)
+            , onBatch = Cmd.batch (List.map toSimulatedEffect effects)
             , ...
             , onReloadAndSkipCache = ...
             }
 
 -}
 switch :
-    Effect msg
+    Effect custom msg
     ->
         { onNone : value
-        , onBatch : List (Effect msg) -> value
+        , onBatch : List (Effect custom msg) -> value
         , onSendMsg : msg -> value
         , onHttp : Request msg -> value
         , onPushUrl : String -> value
@@ -678,39 +724,43 @@ switch :
         , onLoad : String -> value
         , onReload : value
         , onReloadAndSkipCache : value
+        , onCustom : custom -> value
         }
     -> value
 switch effect handlers =
     case effect of
-        None ->
+        Effect.None ->
             handlers.onNone
 
-        Batch effects ->
+        Effect.Batch effects ->
             handlers.onBatch effects
 
-        SendMsg msg ->
+        Effect.SendMsg msg ->
             handlers.onSendMsg msg
 
-        Http req ->
+        Effect.Http req ->
             handlers.onHttp req
 
-        PushUrl url ->
+        Effect.PushUrl url ->
             handlers.onPushUrl url
 
-        ReplaceUrl url ->
+        Effect.ReplaceUrl url ->
             handlers.onReplaceUrl url
 
-        Back int ->
+        Effect.Back int ->
             handlers.onBack int
 
-        Forward int ->
+        Effect.Forward int ->
             handlers.onForward int
 
-        Load url ->
+        Effect.Load url ->
             handlers.onLoad url
 
-        Reload ->
+        Effect.Reload ->
             handlers.onReload
 
-        ReloadAndSkipCache ->
+        Effect.ReloadAndSkipCache ->
             handlers.onReloadAndSkipCache
+
+        Effect.Custom props ->
+            handlers.onCustom props

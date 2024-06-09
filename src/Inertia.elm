@@ -2,10 +2,6 @@ module Inertia exposing
     ( Program
     , Model, Msg
     , program
-    , PageModule
-    , SharedModule
-    , InteropModule
-    , EffectModule, EffectContext
     , PageObject
     )
 
@@ -47,12 +43,7 @@ below will show you how easy this module is to work with in practice!
 @docs program
 
 
-# **Modules**
-
-@docs PageModule
-@docs SharedModule
-@docs InteropModule
-@docs EffectModule, EffectContext
+# **Inertia Page Object**
 
 @docs PageObject
 
@@ -64,7 +55,7 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (Key)
 import Html exposing (Html)
 import Http
-import Inertia.Effect as Effect exposing (Effect)
+import Inertia.Internals.Effect as Effect exposing (Effect)
 import Inertia.Internals.Request exposing (Request)
 import Json.Decode
 import Json.Encode
@@ -78,21 +69,6 @@ import Url exposing (Url)
 
 
 {-| Exposed to allow you to make type annotations for your `main` function.
-
-    import Inertia
-    import Page
-    import Shared
-
-    type alias Model =
-        Inertia.Model Page.Model Shared.Model
-
-    type alias Msg =
-        Inertia.Msg Page.Msg Shared.Msg
-
-    main : Inertia.Program Model Msg
-    main =
-        ...
-
 -}
 type alias Program model msg =
     Platform.Program Flags model msg
@@ -137,22 +113,70 @@ type Msg pageMsg sharedMsg
     main : Inertia.Program Model Msg
     main =
         Inertia.program
-            { page = pageModule
-            , shared = sharedModule
-            , inertia = inertiaModule
-            , effect = effectModule
+            { page =
+                { init = Page.init
+                , update = Page.update
+                , view = Page.view
+                , subscriptions = Page.subscriptions
+                , onPropsChanged = Page.onPropsChanged
+                }
+            , shared =
+                { init = Shared.init
+                , update = Shared.update
+                , subscriptions = Shared.subscriptions
+                , onNavigationError = Shared.onNavigationError
+                }
+            , inertia =
+                { decoder = Interop.decoder
+                , onXsrfTokenRefreshed = Interop.onXsrfTokenRefreshed
+                , onRefreshXsrfToken = Interop.onRefreshXsrfToken
+                }
+            , fromCustomEffectToCmd = fromCustomEffectToCmd
             }
 
-    --
-    -- ( We'll define those modules below! )
-    --
+    fromCustomEffectToCmd :
+        { shared : Shared.Model
+        , url : Url
+        , fromSharedMsg : Shared.Msg -> msg
+        }
+        -> Effect.CustomEffect
+        -> Cmd msg
+    fromCustomEffectToCmd context customEffect =
+        Effect.switch customEffect
+            { onDoNothing = Cmd.none
+            }
 
 -}
 program :
-    { shared : SharedModule flags sharedModel sharedMsg sharedEffect
-    , page : PageModule sharedModel pageModel pageMsg pageEffect
-    , effect : EffectModule sharedModel sharedMsg sharedEffect pageMsg pageEffect
-    , interop : InteropModule flags pageMsg sharedMsg
+    { page :
+        { init : sharedModel -> Url -> PageObject Json.Decode.Value -> ( pageModel, Effect customPage pageMsg )
+        , update : sharedModel -> Url -> PageObject Json.Decode.Value -> pageMsg -> pageModel -> ( pageModel, Effect customPage pageMsg )
+        , subscriptions : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> Sub pageMsg
+        , view : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> Browser.Document pageMsg
+        , onPropsChanged : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> ( pageModel, Effect customPage pageMsg )
+        }
+    , shared :
+        { init : Result Json.Decode.Error flags -> Url -> ( sharedModel, Effect customShared sharedMsg )
+        , update : Url -> sharedMsg -> sharedModel -> ( sharedModel, Effect customShared sharedMsg )
+        , subscriptions : Url -> sharedModel -> Sub sharedMsg
+        , onNavigationError : { url : Url, error : Http.Error } -> sharedMsg
+        }
+    , interop :
+        { decoder : Json.Decode.Decoder flags
+        , onRefreshXsrfToken : () -> Cmd (Msg pageMsg sharedMsg)
+        , onXsrfTokenRefreshed : (String -> Msg pageMsg sharedMsg) -> Sub (Msg pageMsg sharedMsg)
+        }
+    , effect :
+        { fromShared : (sharedMsg -> Msg pageMsg sharedMsg) -> customShared -> customEffect
+        , fromPage : (pageMsg -> Msg pageMsg sharedMsg) -> customPage -> customEffect
+        , fromCustomEffectToCmd :
+            { shared : sharedModel
+            , url : Url
+            , fromSharedMsg : sharedMsg -> Msg pageMsg sharedMsg
+            }
+            -> customEffect
+            -> Cmd (Msg pageMsg sharedMsg)
+        }
     }
     -> Program (Model pageModel sharedModel) (Msg pageMsg sharedMsg)
 program options =
@@ -164,205 +188,6 @@ program options =
         , onUrlChange = UrlChanged >> Inertia
         , onUrlRequest = UrlRequested LinkClicked >> Inertia
         }
-
-
-
--- MODULES
-
-
-{-| The page module determines which page should be visible, and how to manage it's state.
-
-    import Effect exposing (Effect)
-    import Inertia
-    import Page
-    import Shared
-
-    type alias PageModule =
-        Inertia.PageModule Shared.Model Page.Model Page.Msg (Effect Page.Msg)
-
-    pageModule : PageModule
-    pageModule =
-        { init = Page.init
-        , update = Page.update
-        , view = Page.view
-        , subscriptions = Page.subscriptions
-        , onPropsChanged = Page.onPropsChanged
-        }
-
--}
-type alias PageModule shared model msg effect =
-    { init : shared -> Url -> PageObject Json.Decode.Value -> ( model, effect )
-    , update : shared -> Url -> PageObject Json.Decode.Value -> msg -> model -> ( model, effect )
-    , view : shared -> Url -> PageObject Json.Decode.Value -> model -> Browser.Document msg
-    , subscriptions : shared -> Url -> PageObject Json.Decode.Value -> model -> Sub msg
-    , onPropsChanged : shared -> Url -> PageObject Json.Decode.Value -> model -> ( model, effect )
-    }
-
-
-{-| The shared module defines state available to your whole application.
-
-    import Effect exposing (Effect)
-    import Inertia
-    import Interop exposing (Flags)
-    import Shared
-
-    type alias SharedModule =
-        Inertia.SharedModule Interop.Flags Shared.Model Shared.Msg (Effect Shared.Msg)
-
-    sharedModule : SharedModule
-    sharedModule =
-        { init = Shared.init
-        , update = Shared.update
-        , view = Shared.view
-        , subscriptions = Shared.subscriptions
-        , onNavigationError = Shared.NavigationError
-        }
-
--}
-type alias SharedModule flags model msg effect =
-    { init : Result Json.Decode.Error flags -> Url -> ( model, effect )
-    , update : Url -> msg -> model -> ( model, effect )
-    , subscriptions : Url -> model -> Sub msg
-    , onNavigationError : { url : Url, error : Http.Error } -> msg
-    }
-
-
-{-| The interop module allows our app to communicate with JavaScript.
-
-    import Inertia
-    import Interop
-    import Page
-    import Shared
-
-    type alias InteropModule =
-        Inertia.InteropModule Interop.Flags Page.Msg Shared.Msg
-
-    interopModule : InteropModule
-    interopModule =
-        { decoder = Interop.decoder
-        , onRefreshXsrfToken = Interop.onRefreshXsrfToken
-        , onXsrfTokenRefreshed = Interop.onXsrfTokenRefreshed
-        }
-
--}
-type alias InteropModule flags pageMsg sharedMsg =
-    { decoder : Json.Decode.Decoder flags
-    , onRefreshXsrfToken : () -> Cmd (Msg pageMsg sharedMsg)
-    , onXsrfTokenRefreshed : (String -> Msg pageMsg sharedMsg) -> Sub (Msg pageMsg sharedMsg)
-    }
-
-
-{-| The effect module helps your Inertia.Program understand how effects become commands.
-
-
-### **Scenario 1. If you are _not_ customizing Effect**
-
-You can use the `Inertia.Effect` module's `Effect` type directly. Your `effectModule`
-will look something like this:
-
-    -- module Main exposing (main)
-
-
-    import Inertia.Effect as Effect exposing (Effect)
-
-    type alias EffectModule =
-        Inertia.EffectModule Shared.Model Shared.Msg (Effect Shared.Msg) Page.Msg (Effect Page.Msg)
-
-    type alias EffectContext =
-        Inertia.EffectContext Shared.Model Shared.Msg Page.Msg
-
-    effectModule : EffectModule
-    effectModule =
-        { fromPage = fromEffectToCmd
-        , fromShared = fromEffectToCmd
-        }
-
-    fromEffectToCmd :
-        EffectContext
-        -> (anyMsg -> Msg)
-        -> Effect anyMsg
-        -> Cmd Msg
-    fromEffectToCmd context toMsg effect =
-        effect
-            |> Effect.map toMsg
-            |> context.fromInertiaEffect
-
-
-### **Scenario 2. If you have a custom Effect type**
-
-Most applications will need to define a custom Effect type, that uses the `Inertia.Effect` internally, but
-also supports the ability for pages to define effects specific to your app's needs.
-
-Your `effectModule` will look something like this:
-
-    -- module Main exposing (main)
-
-
-    import Effect exposing (Effect)
-
-    type alias EffectModule =
-        Inertia.EffectModule Shared.Model Shared.Msg (Effect Shared.Msg) Page.Msg (Effect Page.Msg)
-
-    type alias EffectContext =
-        Inertia.EffectContext Shared.Model Shared.Msg Page.Msg
-
-    effectModule : EffectModule
-    effectModule =
-        { fromPage = fromEffectToCmd
-        , fromShared = fromEffectToCmd
-        }
-
-    fromEffectToCmd :
-        EffectContext
-        -> (anyMsg -> Msg)
-        -> Effect anyMsg
-        -> Cmd Msg
-    fromEffectToCmd context toMsg effect =
-        effect
-            |> Effect.map toMsg
-            |> performEffect context
-
-    performEffect : EffectContext -> Effect Msg -> Cmd Msg
-    performEffect context effect =
-        case effect of
-            Effect.None ->
-                Cmd.none
-
-            Effect.Inertia inertiaEffect ->
-                context.fromInertiaEffect inertiaEffect
-
-            ...
-
--}
-type alias EffectModule sharedModel sharedMsg sharedEffect pageMsg pageEffect =
-    { fromShared :
-        EffectContext sharedModel sharedMsg pageMsg
-        -> (sharedMsg -> Msg pageMsg sharedMsg)
-        -> sharedEffect
-        -> Cmd (Msg pageMsg sharedMsg)
-    , fromPage :
-        EffectContext sharedModel sharedMsg pageMsg
-        -> (pageMsg -> Msg pageMsg sharedMsg)
-        -> pageEffect
-        -> Cmd (Msg pageMsg sharedMsg)
-    }
-
-
-{-| This is passed into your effect functions to allow you to access important data when
-performing effects.
-
-See the [EffectModule](#EffectModule) documentation above for complete usage.
-
-    type alias EffectContext =
-        Inertia.EffectContext Shared.Model Shared.Msg Page.Msg
-
--}
-type alias EffectContext sharedModel sharedMsg pageMsg =
-    { fromInertiaEffect : Effect (Msg pageMsg sharedMsg) -> Cmd (Msg pageMsg sharedMsg)
-    , fromSharedMsg : sharedMsg -> Msg pageMsg sharedMsg
-    , shared : sharedModel
-    , url : Url
-    }
 
 
 
@@ -406,7 +231,7 @@ inertiaFlagsFallback =
 
 
 strictDecodeFlags :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> Json.Decode.Value
     -> Result Json.Decode.Error (AppFlags flags)
 strictDecodeFlags options json =
@@ -439,7 +264,7 @@ type alias InertiaModel =
 
 
 init :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> Json.Decode.Value
     -> Url
     -> Key
@@ -486,22 +311,16 @@ init options json url key =
     in
     ( Model model
     , Cmd.batch
-        [ options.effect.fromPage
-            { fromInertiaEffect = fromInertiaEffect options model.inertia
-            , fromSharedMsg = Shared
-            , shared = model.shared
-            , url = model.inertia.url
-            }
-            Page
-            pageEffect
-        , options.effect.fromShared
-            { fromInertiaEffect = fromInertiaEffect options model.inertia
-            , fromSharedMsg = Shared
-            , shared = model.shared
-            , url = model.inertia.url
-            }
-            Shared
-            sharedEffect
+        [ sharedEffect
+            |> Effect.map (options.effect.fromShared Shared) Shared
+            |> fromInertiaEffect { shared = model.shared, fromSharedMsg = Shared, url = model.inertia.url }
+                options
+                model.inertia
+        , pageEffect
+            |> Effect.map (options.effect.fromPage Page) Page
+            |> fromInertiaEffect { shared = model.shared, fromSharedMsg = Shared, url = model.inertia.url }
+                options
+                model.inertia
         ]
     )
 
@@ -526,7 +345,7 @@ type UrlRequestSource
 
 
 update :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> Msg pageMsg sharedMsg
     -> Model pageModel sharedModel
     ->
@@ -541,14 +360,11 @@ update options msg (Model model) =
                     options.page.update model.shared model.inertia.url model.inertia.pageObject pageMsg model.page
             in
             ( Model { model | page = pageModel }
-            , options.effect.fromPage
-                { fromInertiaEffect = fromInertiaEffect options model.inertia
-                , fromSharedMsg = Shared
-                , shared = model.shared
-                , url = model.inertia.url
-                }
-                Page
-                pageEffect
+            , pageEffect
+                |> Effect.map (options.effect.fromPage Page) Page
+                |> fromInertiaEffect { shared = model.shared, fromSharedMsg = Shared, url = model.inertia.url }
+                    options
+                    model.inertia
             )
 
         Shared sharedMsg ->
@@ -557,14 +373,11 @@ update options msg (Model model) =
                     options.shared.update model.inertia.url sharedMsg model.shared
             in
             ( Model { model | shared = sharedModel }
-            , options.effect.fromShared
-                { fromInertiaEffect = fromInertiaEffect options model.inertia
-                , fromSharedMsg = Shared
-                , shared = model.shared
-                , url = model.inertia.url
-                }
-                Shared
-                sharedEffect
+            , sharedEffect
+                |> Effect.map (options.effect.fromShared Shared) Shared
+                |> fromInertiaEffect { shared = model.shared, fromSharedMsg = Shared, url = model.inertia.url }
+                    options
+                    model.inertia
             )
 
         Inertia inertiaMsg ->
@@ -586,14 +399,11 @@ update options msg (Model model) =
                     ( Model { model | inertia = inertiaModel, page = page }
                     , Cmd.batch
                         [ inertiaCmd
-                        , options.effect.fromPage
-                            { fromInertiaEffect = fromInertiaEffect options model.inertia
-                            , fromSharedMsg = Shared
-                            , shared = model.shared
-                            , url = model.inertia.url
-                            }
-                            Page
-                            pageEffect
+                        , pageEffect
+                            |> Effect.map (options.effect.fromPage Page) Page
+                            |> fromInertiaEffect { shared = model.shared, fromSharedMsg = Shared, url = model.inertia.url }
+                                options
+                                model.inertia
                         ]
                     )
 
@@ -605,14 +415,11 @@ update options msg (Model model) =
                     ( Model { model | inertia = inertiaModel, page = page }
                     , Cmd.batch
                         [ inertiaCmd
-                        , options.effect.fromPage
-                            { fromInertiaEffect = fromInertiaEffect options model.inertia
-                            , fromSharedMsg = Shared
-                            , shared = model.shared
-                            , url = model.inertia.url
-                            }
-                            Page
-                            pageEffect
+                        , pageEffect
+                            |> Effect.map (options.effect.fromPage Page) Page
+                            |> fromInertiaEffect { shared = model.shared, fromSharedMsg = Shared, url = model.inertia.url }
+                                options
+                                model.inertia
                         ]
                     )
 
@@ -624,7 +431,7 @@ type Trigger
 
 
 inertiaUpdate :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> InertiaMsg (Msg pageMsg sharedMsg)
     -> InertiaModel
     -> ( InertiaModel, Cmd (Msg pageMsg sharedMsg), Trigger )
@@ -739,7 +546,7 @@ inertiaUpdate options msg model =
 
 
 subscriptions :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> Model pageModel sharedModel
     -> Sub (Msg pageMsg sharedMsg)
 subscriptions options (Model model) =
@@ -757,7 +564,7 @@ subscriptions options (Model model) =
 
 
 view :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> Model pageModel sharedModel
     -> Document (Msg pageMsg sharedMsg)
 view options (Model model) =
@@ -770,41 +577,52 @@ view options (Model model) =
 
 
 fromInertiaEffect :
-    Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect
+    { shared : sharedModel
+    , url : Url
+    , fromSharedMsg : sharedMsg -> Msg pageMsg sharedMsg
+    }
+    -> Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared
     -> InertiaModel
-    -> Effect (Msg pageMsg sharedMsg)
+    -> Effect customEffect (Msg pageMsg sharedMsg)
     -> Cmd (Msg pageMsg sharedMsg)
-fromInertiaEffect options model effect =
-    Effect.switch effect
-        { onNone = Cmd.none
-        , onBatch =
-            \effects ->
-                Cmd.batch (List.map (fromInertiaEffect options model) effects)
-        , onSendMsg =
-            \msg ->
-                Task.succeed msg
-                    |> Task.perform identity
-        , onHttp =
-            \req ->
-                onHttp model req
-        , onPushUrl =
-            \url ->
-                Nav.pushUrl model.key url
-        , onReplaceUrl =
-            \url ->
-                Nav.replaceUrl model.key url
-        , onBack =
-            \int ->
-                Nav.back model.key int
-        , onForward =
-            \int ->
-                Nav.forward model.key int
-        , onLoad =
-            \url ->
-                Nav.load url
-        , onReload = Nav.reload
-        , onReloadAndSkipCache = Nav.reloadAndSkipCache
-        }
+fromInertiaEffect context options model effect =
+    case effect of
+        Effect.None ->
+            Cmd.none
+
+        Effect.Batch effects ->
+            Cmd.batch (List.map (fromInertiaEffect context options model) effects)
+
+        Effect.SendMsg msg ->
+            Task.succeed msg
+                |> Task.perform identity
+
+        Effect.Http req ->
+            onHttp model req
+
+        Effect.PushUrl url ->
+            Nav.pushUrl model.key url
+
+        Effect.ReplaceUrl url ->
+            Nav.replaceUrl model.key url
+
+        Effect.Back int ->
+            Nav.back model.key int
+
+        Effect.Forward int ->
+            Nav.forward model.key int
+
+        Effect.Load url ->
+            Nav.load url
+
+        Effect.Reload ->
+            Nav.reload
+
+        Effect.ReloadAndSkipCache ->
+            Nav.reloadAndSkipCache
+
+        Effect.Custom data ->
+            options.effect.fromCustomEffectToCmd context data
 
 
 onHttp : InertiaModel -> Request (Msg pageMsg sharedMsg) -> Cmd (Msg pageMsg sharedMsg)
@@ -878,36 +696,35 @@ fromAbsoluteUrl absoluteUrl url =
     Url.fromString (baseUrl ++ absoluteUrl)
 
 
-type alias Options flags sharedModel sharedMsg sharedEffect pageModel pageMsg pageEffect =
-    { shared :
-        { init : Result Json.Decode.Error flags -> Url -> ( sharedModel, sharedEffect )
-        , update : Url -> sharedMsg -> sharedModel -> ( sharedModel, sharedEffect )
-        , subscriptions : Url -> sharedModel -> Sub sharedMsg
-        , onNavigationError : { url : Url, error : Http.Error } -> sharedMsg
-        }
-    , page :
-        { init : sharedModel -> Url -> PageObject Json.Decode.Value -> ( pageModel, pageEffect )
-        , update : sharedModel -> Url -> PageObject Json.Decode.Value -> pageMsg -> pageModel -> ( pageModel, pageEffect )
+type alias Options flags sharedModel sharedMsg pageModel pageMsg customEffect customPage customShared =
+    { page :
+        { init : sharedModel -> Url -> PageObject Json.Decode.Value -> ( pageModel, Effect customPage pageMsg )
+        , update : sharedModel -> Url -> PageObject Json.Decode.Value -> pageMsg -> pageModel -> ( pageModel, Effect customPage pageMsg )
         , subscriptions : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> Sub pageMsg
         , view : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> Browser.Document pageMsg
-        , onPropsChanged : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> ( pageModel, pageEffect )
+        , onPropsChanged : sharedModel -> Url -> PageObject Json.Decode.Value -> pageModel -> ( pageModel, Effect customPage pageMsg )
         }
-    , effect :
-        { fromShared :
-            EffectContext sharedModel sharedMsg pageMsg
-            -> (sharedMsg -> Msg pageMsg sharedMsg)
-            -> sharedEffect
-            -> Cmd (Msg pageMsg sharedMsg)
-        , fromPage :
-            EffectContext sharedModel sharedMsg pageMsg
-            -> (pageMsg -> Msg pageMsg sharedMsg)
-            -> pageEffect
-            -> Cmd (Msg pageMsg sharedMsg)
+    , shared :
+        { init : Result Json.Decode.Error flags -> Url -> ( sharedModel, Effect customShared sharedMsg )
+        , update : Url -> sharedMsg -> sharedModel -> ( sharedModel, Effect customShared sharedMsg )
+        , subscriptions : Url -> sharedModel -> Sub sharedMsg
+        , onNavigationError : { url : Url, error : Http.Error } -> sharedMsg
         }
     , interop :
         { decoder : Json.Decode.Decoder flags
         , onRefreshXsrfToken : () -> Cmd (Msg pageMsg sharedMsg)
         , onXsrfTokenRefreshed : (String -> Msg pageMsg sharedMsg) -> Sub (Msg pageMsg sharedMsg)
+        }
+    , effect :
+        { fromShared : (sharedMsg -> Msg pageMsg sharedMsg) -> customShared -> customEffect
+        , fromPage : (pageMsg -> Msg pageMsg sharedMsg) -> customPage -> customEffect
+        , fromCustomEffectToCmd :
+            { shared : sharedModel
+            , url : Url
+            , fromSharedMsg : sharedMsg -> Msg pageMsg sharedMsg
+            }
+            -> customEffect
+            -> Cmd (Msg pageMsg sharedMsg)
         }
     }
 

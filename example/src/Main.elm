@@ -2,23 +2,21 @@ module Main exposing (main)
 
 import Browser exposing (Document)
 import Browser.Events
+import Effect exposing (Effect)
 import Html exposing (Html)
 import Http
 import Inertia
-import Inertia.Effect as Effect exposing (Effect)
 import Interop
 import Json.Decode
 import Page
+import Process
 import Shared
+import Task
 import Url exposing (Url)
 
 
 
 -- PROGRAM
-
-
-type alias Program =
-    Inertia.Program Model Msg
 
 
 type alias Model =
@@ -29,76 +27,46 @@ type alias Msg =
     Inertia.Msg Page.Msg Shared.Msg
 
 
-main : Program
+main : Inertia.Program Model Msg
 main =
     Inertia.program
-        { shared = sharedModule
-        , page = pageModule
+        { shared =
+            { init = Shared.init
+            , update = Shared.update
+            , subscriptions = Shared.subscriptions
+            , onNavigationError = Shared.NavigationError
+            }
+        , page =
+            { init = Page.init
+            , update = Page.update
+            , view = Page.view
+            , subscriptions = Page.subscriptions
+            , onPropsChanged = Page.onPropsChanged
+            }
         , interop =
             { decoder = Interop.decoder
             , onRefreshXsrfToken = Interop.onRefreshXsrfToken
             , onXsrfTokenRefreshed = Interop.onXsrfTokenRefreshed
             }
         , effect =
-            { fromPage = fromEffectToCmd
-            , fromShared = fromEffectToCmd
+            { fromCustomEffectToCmd = fromCustomEffectToCmd
+            , fromShared = Effect.mapCustomEffect
+            , fromPage = Effect.mapCustomEffect
             }
         }
 
 
-
--- PAGE
-
-
-type alias PageModule =
-    Inertia.PageModule Shared.Model Page.Model Page.Msg (Effect Page.Msg)
-
-
-pageModule : PageModule
-pageModule =
-    { init = Page.init
-    , update = Page.update
-    , view = Page.view
-    , subscriptions = Page.subscriptions
-    , onPropsChanged = Page.onPropsChanged
+fromCustomEffectToCmd :
+    { shared : Shared.Model
+    , url : Url
+    , fromSharedMsg : Shared.Msg -> msg
     }
-
-
-
--- SHARED
-
-
-type alias SharedModule =
-    Inertia.SharedModule
-        Interop.Flags
-        Shared.Model
-        Shared.Msg
-        (Effect Shared.Msg)
-
-
-sharedModule : SharedModule
-sharedModule =
-    { init = Shared.init
-    , update = Shared.update
-    , subscriptions = Shared.subscriptions
-    , onNavigationError = Shared.NavigationError
-    }
-
-
-
--- EFFECT
-
-
-type alias EffectContext =
-    Inertia.EffectContext Shared.Model Shared.Msg Page.Msg
-
-
-fromEffectToCmd :
-    EffectContext
-    -> (someMsg -> Msg)
-    -> Effect someMsg
-    -> Cmd Msg
-fromEffectToCmd context toMsg effect =
-    effect
-        |> Effect.map toMsg
-        |> context.fromInertiaEffect
+    -> Effect.CustomEffect msg
+    -> Cmd msg
+fromCustomEffectToCmd context customEffect =
+    Effect.switch customEffect
+        { onSendDelayedMsg =
+            \float msg ->
+                Process.sleep float
+                    |> Task.perform (\_ -> msg)
+        }
