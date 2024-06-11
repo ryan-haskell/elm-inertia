@@ -8,7 +8,7 @@ module Effect exposing
     , load, reload, reloadAndSkipCache
     , reportFlagsDecodeError
     , map
-    , CustomEffect, switch
+    , CustomEffect(..)
     , mapCustomEffect
     )
 
@@ -205,13 +205,3 @@ mapCustomEffect fn customEffect =
     case customEffect of
         ReportFlagsDecodeError error ->
             ReportFlagsDecodeError error
-
-
-switch :
-    CustomEffect msg
-    -> { onReportFlagsDecodeError : Json.Decode.Error -> value }
-    -> value
-switch customEffect handlers =
-    case customEffect of
-        ReportFlagsDecodeError error ->
-            handlers.onReportFlagsDecodeError error

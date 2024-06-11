@@ -1,8 +1,8 @@
 import path from 'path'
 import { Files } from './_files.js'
 
-const template = (pageModule = '') => `
-module Page.${pageModule} exposing
+const template = (pageModule = '', pageFolder) => `
+module ${pageFolder}.${pageModule} exposing
     ( Props, decoder
     , Model, init, onPropsChanged
     , Msg, update, subscriptions
@@ -114,8 +114,9 @@ export default async (userInput = '') => {
   }
 
   // Create a new Page file
+  const pageFolder = 'Pages'
   await Files.createFile({
-    name: `src/Page/${pageModuleName.split('.').join('/')}.elm`,
-    content: template(pageModuleName)
+    name: `src/${pageFolder}/${pageModuleName.split('.').join('/')}.elm`,
+    content: template(pageModuleName, pageFolder)
   })
 }

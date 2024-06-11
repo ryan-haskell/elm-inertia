@@ -1,37 +1,37 @@
 import path from 'path'
 import { Files } from './_files.js'
 
-let template = (pageModules) => `
-module Page exposing (Model, Msg, init, onPropsChanged, subscriptions, update, view)
+let template = (pageModules, pageFolder) => `
+module ${pageFolder} exposing (Model, Msg, init, onPropsChanged, subscriptions, update, view)
 
 import Browser exposing (Document)
 import Effect exposing (Effect)
 import Html
 import Inertia exposing (PageObject)
 import Json.Decode exposing (Value)
-${toPageImports(pageModules)}
+${toPageImports(pageModules, pageFolder)}
 import Shared
 import Url exposing (Url)
 
 
-${toModelCustomType(pageModules)}
+${toModelCustomType(pageModules, pageFolder)}
 
 
-${toMsgCustomType(pageModules)}
+${toMsgCustomType(pageModules, pageFolder)}
 
 
 init : Shared.Model -> Url -> PageObject Value -> ( Model, Effect Msg )
 init shared url pageObject =
-${toInitBody(pageModules)}
+${toInitBody(pageModules, pageFolder)}
 
 
 update : Shared.Model -> Url -> PageObject Value -> Msg -> Model -> ( Model, Effect Msg )
 update shared url pageObject msg model =
     case ( msg, model ) of
-        ${toUpdateCaseBranches(pageModules)}( Msg_Error404 pageMsg, Model_Error404 page ) ->
+        ${toUpdateCaseBranches(pageModules, pageFolder)}( Msg_Error404 pageMsg, Model_Error404 page ) ->
             let
                 ( pageModel, pageEffect ) =
-                    Page.Error404.update shared url pageMsg page.model
+                    ${pageFolder}.Error404.update shared url pageMsg page.model
             in
             ( Model_Error404 { page | model = pageModel }
             , Effect.map Msg_Error404 pageEffect
@@ -40,7 +40,7 @@ update shared url pageObject msg model =
         ( Msg_Error500 pageMsg, Model_Error500 page ) ->
             let
                 ( pageModel, pageEffect ) =
-                    Page.Error500.update shared url page.info pageMsg page.model
+                    ${pageFolder}.Error500.update shared url page.info pageMsg page.model
             in
             ( Model_Error500 { page | model = pageModel }
             , Effect.map Msg_Error500 pageEffect
@@ -53,24 +53,24 @@ update shared url pageObject msg model =
 subscriptions : Shared.Model -> Url -> PageObject Value -> Model -> Sub Msg
 subscriptions shared url pageObject model =
     case model of
-        ${toSubscriptionsCaseBranches(pageModules)}Model_Error404 page ->
-            Page.Error404.subscriptions shared url page.model
+        ${toSubscriptionsCaseBranches(pageModules, pageFolder)}Model_Error404 page ->
+            ${pageFolder}.Error404.subscriptions shared url page.model
                 |> Sub.map Msg_Error404
 
         Model_Error500 page ->
-            Page.Error500.subscriptions shared url page.info page.model
+            ${pageFolder}.Error500.subscriptions shared url page.info page.model
                 |> Sub.map Msg_Error500
 
 
 view : Shared.Model -> Url -> PageObject Value -> Model -> Document Msg
 view shared url pageObject model =
     case model of
-        ${toViewCaseBranches(pageModules)}Model_Error404 page ->
-            Page.Error404.view shared url page.model
+        ${toViewCaseBranches(pageModules, pageFolder)}Model_Error404 page ->
+            ${pageFolder}.Error404.view shared url page.model
                 |> mapDocument Msg_Error404
 
         Model_Error500 page ->
-            Page.Error500.view shared url page.info page.model
+            ${pageFolder}.Error500.view shared url page.info page.model
                 |> mapDocument Msg_Error500
 
 
@@ -82,7 +82,7 @@ onPropsChanged :
     -> ( Model, Effect Msg )
 onPropsChanged shared url pageObject model =
     case model of
-        ${toOnPropsChangedCaseBranches(pageModules)}Model_Error404 page ->
+        ${toOnPropsChangedCaseBranches(pageModules, pageFolder)}Model_Error404 page ->
             ( model, Effect.none )
 
         Model_Error500 page ->
@@ -125,12 +125,12 @@ onPropsChangedForPage shared url pageObject page options =
 
         Err jsonDecodeError ->
             let
-                info : Page.Error500.Info
+                info : ${pageFolder}.Error500.Info
                 info =
                     { pageObject = pageObject, error = jsonDecodeError }
 
                 ( pageModel, pageEffect ) =
-                    Page.Error500.init shared url info
+                    ${pageFolder}.Error500.init shared url info
             in
             ( Model_Error500 { info = info, model = pageModel }
             , Effect.map Msg_Error500 pageEffect
@@ -161,12 +161,12 @@ initForPage shared url pageObject options =
 
         Err jsonDecodeError ->
             let
-                info : Page.Error500.Info
+                info : ${pageFolder}.Error500.Info
                 info =
                     { pageObject = pageObject, error = jsonDecodeError }
 
                 ( pageModel, pageEffect ) =
-                    Page.Error500.init shared url info
+                    ${pageFolder}.Error500.init shared url info
             in
             ( Model_Error500 { info = info, model = pageModel }
             , Effect.map Msg_Error500 pageEffect
@@ -185,20 +185,20 @@ initForPage shared url pageObject options =
  * @param {string[]} pageModules 
  * @returns {string}
  */
-const toModelCustomType = (pageModules = []) =>{
+const toModelCustomType = (pageModules = [], pageFolder) =>{
   const separator = `\n    | `
 
   const toVariant = (pageModule) =>
-    `Model_${toSnakeCase(pageModule)} { props : Page.${pageModule}.Props, model : Page.${pageModule}.Model }`
+    `Model_${toSnakeCase(pageModule)} { props : ${pageFolder}.${pageModule}.Props, model : ${pageFolder}.${pageModule}.Model }`
 
   return (pageModules.length === 0)
     ? `type Model
-    = Model_Error404 { model : Page.Error404.Model }
-    | Model_Error500 { info : Page.Error500.Info, model : Page.Error500.Model }`
+    = Model_Error404 { model : ${pageFolder}.Error404.Model }
+    | Model_Error500 { info : ${pageFolder}.Error500.Info, model : ${pageFolder}.Error500.Model }`
     : `type Model
     = ${pageModules.map(toVariant).join(separator)}
-    | Model_Error404 { model : Page.Error404.Model }
-    | Model_Error500 { info : Page.Error500.Info, model : Page.Error500.Model }`
+    | Model_Error404 { model : ${pageFolder}.Error404.Model }
+    | Model_Error500 { info : ${pageFolder}.Error500.Info, model : ${pageFolder}.Error500.Model }`
 }
 
 
@@ -214,20 +214,20 @@ const toModelCustomType = (pageModules = []) =>{
  * @param {string[]} pageModules 
  * @returns {string}
  */
-const toMsgCustomType = (pageModules = []) =>{
+const toMsgCustomType = (pageModules = [], pageFolder) =>{
   const separator = `\n    | `
 
   const toVariant = (pageModule) =>
-    `Msg_${toSnakeCase(pageModule)} Page.${pageModule}.Msg`
+    `Msg_${toSnakeCase(pageModule)} ${pageFolder}.${pageModule}.Msg`
 
   return (pageModules.length === 0)
     ? `type Msg
-    = Msg_Error404 Page.Error404.Msg
-    | Msg_Error500 Page.Error500.Msg`
+    = Msg_Error404 ${pageFolder}.Error404.Msg
+    | Msg_Error500 ${pageFolder}.Error500.Msg`
     : `type Msg
     = ${pageModules.map(toVariant).join(separator)}
-    | Msg_Error404 Page.Error404.Msg
-    | Msg_Error500 Page.Error500.Msg`
+    | Msg_Error404 ${pageFolder}.Error404.Msg
+    | Msg_Error500 ${pageFolder}.Error500.Msg`
 }
 
 
@@ -243,18 +243,18 @@ const toMsgCustomType = (pageModules = []) =>{
  * @param {string[]} pageModules 
  * @returns {string}
  */
-const toPageImports = (pageModules = []) => 
+const toPageImports = (pageModules = [], pageFolder) => 
   pageModules.concat(['Error404', 'Error500'])
-    .map(pageModule => `import Page.${pageModule}`)
+    .map(pageModule => `import ${pageFolder}.${pageModule}`)
     .join('\n')
 
 
-const toInitBody = (pageModules = []) => {
+const toInitBody = (pageModules = [], pageFolder) => {
 
   if (pageModules.length === 0) {
     return `    let
         ( pageModel, pageEffect ) =
-            Page.Error404.init shared url
+            ${pageFolder}.Error404.init shared url
     in
     ( Model_Error404 { model = pageModel }
     , Effect.map Msg_Error404 pageEffect
@@ -264,10 +264,10 @@ const toInitBody = (pageModules = []) => {
   const separator = `\n\n        `
 
   const toCaseBranch = (pageModule = '') => {
-    return `"${toSnakeCase(pageModule)}" ->
+    return `"${toSlashCase(pageModule)}" ->
             initForPage shared url pageObject <|
-                { decoder = Page.${pageModule}.decoder
-                , init = Page.${pageModule}.init
+                { decoder = ${pageFolder}.${pageModule}.decoder
+                , init = ${pageFolder}.${pageModule}.init
                 , toModel = Model_${toSnakeCase(pageModule)}
                 , toMsg = Msg_${toSnakeCase(pageModule)}
                 }`
@@ -279,7 +279,7 @@ const toInitBody = (pageModules = []) => {
         _ ->
             let
                 ( pageModel, pageEffect ) =
-                    Page.Error404.init shared url
+                    ${pageFolder}.Error404.init shared url
             in
             ( Model_Error404 { model = pageModel }
             , Effect.map Msg_Error404 pageEffect
@@ -287,7 +287,7 @@ const toInitBody = (pageModules = []) => {
 }
 
 
-const toUpdateCaseBranches = (pageModules = []) => {
+const toUpdateCaseBranches = (pageModules = [], pageFolder) => {
   if (pageModules.length === 0) return ''
 
   const separator = `\n\n        `
@@ -296,7 +296,7 @@ const toUpdateCaseBranches = (pageModules = []) => {
     return `( Msg_${toSnakeCase(pageModule)} pageMsg, Model_${toSnakeCase(pageModule)} page ) ->
             let
                 ( pageModel, pageEffect ) =
-                    Page.${pageModule}.update shared url page.props pageMsg page.model
+                    ${pageFolder}.${pageModule}.update shared url page.props pageMsg page.model
             in
             ( Model_${toSnakeCase(pageModule)} { page | model = pageModel }
             , Effect.map Msg_${toSnakeCase(pageModule)} pageEffect
@@ -307,14 +307,14 @@ const toUpdateCaseBranches = (pageModules = []) => {
 }
 
 
-const toSubscriptionsCaseBranches = (pageModules = []) => {
+const toSubscriptionsCaseBranches = (pageModules = [], pageFolder) => {
   if (pageModules.length === 0) return ''
 
   const separator = `\n\n        `
 
   const toCaseBranch = (pageModule = '') => {
     return `Model_${toSnakeCase(pageModule)} page ->
-            Page.${pageModule}.subscriptions shared url page.props page.model
+            ${pageFolder}.${pageModule}.subscriptions shared url page.props page.model
                 |> Sub.map Msg_${toSnakeCase(pageModule)}`
   }
 
@@ -322,14 +322,14 @@ const toSubscriptionsCaseBranches = (pageModules = []) => {
 }
 
 
-const toViewCaseBranches = (pageModules = []) => {
+const toViewCaseBranches = (pageModules = [], pageFolder) => {
   if (pageModules.length === 0) return ''
 
   const separator = `\n\n        `
 
   const toCaseBranch = (pageModule = '') => {
     return `Model_${toSnakeCase(pageModule)} page ->
-            Page.${pageModule}.view shared url page.props page.model
+            ${pageFolder}.${pageModule}.view shared url page.props page.model
                 |> mapDocument Msg_${toSnakeCase(pageModule)}`
   }
 
@@ -337,7 +337,7 @@ const toViewCaseBranches = (pageModules = []) => {
 }
 
 
-const toOnPropsChangedCaseBranches = (pageModules = []) => {
+const toOnPropsChangedCaseBranches = (pageModules = [], pageFolder) => {
   if (pageModules.length === 0) return ''
 
   const separator = `\n\n        `
@@ -345,8 +345,8 @@ const toOnPropsChangedCaseBranches = (pageModules = []) => {
   const toCaseBranch = (pageModule = '') => {
     return `Model_${toSnakeCase(pageModule)} page ->
             onPropsChangedForPage shared url pageObject page <|
-                { decoder = Page.${pageModule}.decoder
-                , onPropsChanged = Page.${pageModule}.onPropsChanged
+                { decoder = ${pageFolder}.${pageModule}.decoder
+                , onPropsChanged = ${pageFolder}.${pageModule}.onPropsChanged
                 , toModel = Model_${toSnakeCase(pageModule)}
                 , toMsg = Msg_${toSnakeCase(pageModule)}
                 }`
@@ -369,6 +369,17 @@ const toSnakeCase = (dotSeparatedString = '') =>
   dotSeparatedString.split('.').join('_')
 
 
+/**
+ * @example 
+ *  toSlashCase('Dashboard') == 'Dashboard'
+ *  toSlashCase('Organizations.Index') == 'Organizations/Index'
+ * @param {string} input
+ * @returns {string}
+ */ 
+const toSlashCase = (dotSeparatedString = '') =>
+  dotSeparatedString.split('.').join('/')
+
+
 
 export default async () => {
   // 1. Check for presence of `src/Page` folder
@@ -387,9 +398,11 @@ export default async () => {
     .filter(name => name !== 'Error404' && name !== 'Error500')
     .sort()
 
+    
   // Create a new Page file
+  const pageFolder = 'Page'
   await Files.createFile({
-    name: 'src/Page.elm',
-    content: template(pageModuleNames)
+    name: `src/${pageFolder}.elm`,
+    content: template(pageModuleNames, pageFolder)
   })
 }

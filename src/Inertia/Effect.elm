@@ -647,12 +647,12 @@ reloadAndSkipCache =
 {-| Transform an effect of one type into another. Common when working with effects from pages.
 
     import Effect exposing (Effect)
-    import Page.Dashboard
+    import Pages.Dashboard
 
     type Msg
-        = Dashboard Page.Dashboard.Msg
+        = Dashboard Pages.Dashboard.Msg
 
-    dashboardPageEffect : Effect Page.Dashboard.Msg
+    dashboardPageEffect : Effect Pages.Dashboard.Msg
     dashboardPageEffect =
         Effect.none
 

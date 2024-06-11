@@ -59,6 +59,6 @@ fromCustomEffectToCmd :
     -> Effect.CustomEffect msg
     -> Cmd msg
 fromCustomEffectToCmd context customEffect =
-    Effect.switch customEffect
-        { onReportFlagsDecodeError = \error -> Interop.onFlagsDecodeError (Json.Decode.errorToString error)
-        }
+    case customEffect of
+        Effect.ReportFlagsDecodeError error ->
+            Interop.onFlagsDecodeError (Json.Decode.errorToString error)

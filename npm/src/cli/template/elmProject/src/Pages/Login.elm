@@ -1,4 +1,4 @@
-module Page.Dashboard exposing
+module Pages.Login exposing
     ( Props, decoder
     , Model, init, onPropsChanged
     , Msg, update, subscriptions
@@ -81,9 +81,9 @@ subscriptions shared url props model =
 
 view : Shared.Model -> Url -> Props -> Model -> Browser.Document Msg
 view shared url props model =
-    { title = "Dashboard"
+    { title = "Login"
     , body =
-        [ h1 [] [ text "Dashboard" ]
+        [ h1 [] [ text "Login" ]
         , p [] [ text "This app is powered by elm-inertia!" ]
         ]
     }

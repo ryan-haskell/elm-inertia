@@ -5,7 +5,7 @@ import Effect exposing (Effect)
 import Inertia
 import Interop
 import Json.Decode
-import Page
+import Pages
 import Shared
 import Url exposing (Url)
 
@@ -15,11 +15,11 @@ import Url exposing (Url)
 
 
 type alias Model =
-    Inertia.Model Page.Model Shared.Model
+    Inertia.Model Pages.Model Shared.Model
 
 
 type alias Msg =
-    Inertia.Msg Page.Msg Shared.Msg
+    Inertia.Msg Pages.Msg Shared.Msg
 
 
 main : Inertia.Program Model Msg
@@ -32,11 +32,11 @@ main =
             , onNavigationError = Shared.NavigationError
             }
         , page =
-            { init = Page.init
-            , update = Page.update
-            , view = Page.view
-            , subscriptions = Page.subscriptions
-            , onPropsChanged = Page.onPropsChanged
+            { init = Pages.init
+            , update = Pages.update
+            , view = Pages.view
+            , subscriptions = Pages.subscriptions
+            , onPropsChanged = Pages.onPropsChanged
             }
         , interop =
             { decoder = Interop.decoder
@@ -59,6 +59,6 @@ fromCustomEffectToCmd :
     -> Effect.CustomEffect msg
     -> Cmd msg
 fromCustomEffectToCmd context customEffect =
-    Effect.switch customEffect
-        { onReportFlagsDecodeError = \error -> Interop.onFlagsDecodeError (Json.Decode.errorToString error)
-        }
+    case customEffect of
+        Effect.ReportFlagsDecodeError error ->
+            Interop.onFlagsDecodeError (Json.Decode.errorToString error)

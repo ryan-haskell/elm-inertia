@@ -1,4 +1,4 @@
-module Page.Error404 exposing
+module Pages.Error404 exposing
     ( Model, init
     , Msg, update, subscriptions
     , view

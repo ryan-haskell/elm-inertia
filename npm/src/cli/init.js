@@ -1,6 +1,7 @@
 
 import prompts from 'prompts'
 import { Files } from './_files.js'
+import fs from 'fs/promises'
 import path from 'path'
 import url from 'url'
 
@@ -62,7 +63,7 @@ const buildCustomPlan = async () => {
     {
       type: 'text',
       name: 'elmRootFolder',
-      message: 'Which folder should contain the Elm files?',
+      message: 'Where should the frontend project go? (relative to project root)',
       initial: '.'
     }
   ])
@@ -72,9 +73,11 @@ const buildCustomPlan = async () => {
         ? []
         : str.split(path.sep).flatMap(x => x.split('/'))
 
+  const rootFolder = fromStringToFolders(response.rootFolder)
+
   return {
-    rootFolder: fromStringToFolders(response.rootFolder),
-    elmRootFolder: fromStringToFolders(response.elmRootFolder)
+    rootFolder,
+    elmRootFolder: rootFolder.concat(fromStringToFolders(response.elmRootFolder))
   }
 }
 
@@ -124,16 +127,48 @@ const generateNewProject = async (plan) => {
   let elmRootFolder = path.join(process.cwd(),...plan.elmRootFolder)
 
   // Add elm.json
-  await Files.copyPasteFile({
-    source: path.join(__dirname, 'template', 'elm.json'),
-    destination: path.join(rootFolder, 'elm.json')
-  })
+  const elmJson = {
+    "type": "application",
+    "source-directories": [
+        [...plan.elmRootFolder, 'src'].join('/')
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/browser": "1.0.2",
+            "elm/core": "1.0.5",
+            "elm/html": "1.0.0",
+            "elm/http": "2.0.0",
+            "elm/json": "1.1.3",
+            "elm/url": "1.0.0",
+            "ryan-haskell/elm-inertia": "1.0.1"
+        },
+        "indirect": {
+            "elm/bytes": "1.0.8",
+            "elm/file": "1.0.5",
+            "elm/time": "1.0.0",
+            "elm/virtual-dom": "1.0.3"
+        }
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+  }
+
+
 
   // Add vite.config.js
   await Files.copyPasteFile({
     source: path.join(__dirname, 'template', 'vite.config.js'),
     destination: path.join(rootFolder, 'vite.config.js')
   })
+
+  // Add elm.json file
+  await fs.writeFile(
+    path.join(rootFolder, 'elm.json'),
+    JSON.stringify(elmJson, null, 4)
+  )
 
   // Install vite dependencies
   console.log(`\n  Please run the following command: \n\n    npm install -D vite vite-plugin-elm-watch`)

@@ -27,7 +27,7 @@ The rest of documentation will walk you through using this package without a sta
         - elm.json
         - src/
             - Main.elm
-            - Page.elm
+            - Pages.elm
             - Shared.elm
             - Effect.elm
             - Interop.elm
@@ -101,24 +101,24 @@ type Msg pageMsg sharedMsg
     import Effect
     import Inertia
     import Interop
-    import Page
+    import Pages
     import Shared
 
     type alias Model =
-        Inertia.Model Page.Model Shared.Model
+        Inertia.Model Pages.Model Shared.Model
 
     type alias Msg =
-        Inertia.Msg Page.Msg Shared.Msg
+        Inertia.Msg Pages.Msg Shared.Msg
 
     main : Inertia.Program Model Msg
     main =
         Inertia.program
             { page =
-                { init = Page.init
-                , update = Page.update
-                , view = Page.view
-                , subscriptions = Page.subscriptions
-                , onPropsChanged = Page.onPropsChanged
+                { init = Pages.init
+                , update = Pages.update
+                , view = Pages.view
+                , subscriptions = Pages.subscriptions
+                , onPropsChanged = Pages.onPropsChanged
                 }
             , shared =
                 { init = Shared.init
@@ -131,7 +131,11 @@ type Msg pageMsg sharedMsg
                 , onXsrfTokenRefreshed = Interop.onXsrfTokenRefreshed
                 , onRefreshXsrfToken = Interop.onRefreshXsrfToken
                 }
-            , fromCustomEffectToCmd = fromCustomEffectToCmd
+            , effect =
+                { fromCustomEffectToCmd = fromCustomEffectToCmd
+                , fromShared = Effect.mapCustomEffect
+                , fromPage = Effect.mapCustomEffect
+                }
             }
 
     fromCustomEffectToCmd :
@@ -139,12 +143,12 @@ type Msg pageMsg sharedMsg
         , url : Url
         , fromSharedMsg : Shared.Msg -> msg
         }
-        -> Effect.CustomEffect
+        -> Effect.CustomEffect msg
         -> Cmd msg
     fromCustomEffectToCmd context customEffect =
-        Effect.switch customEffect
-            { onDoNothing = Cmd.none
-            }
+        case customEffect of
+            Effect.DoNothing ->
+                Cmd.none
 
 -}
 program :
@@ -734,7 +738,7 @@ type alias Options flags sharedModel sharedMsg pageModel pageMsg customEffect cu
 
 
 {-| This represents [the "page object"](https://inertiajs.com/the-protocol#the-page-object) sent back with every Inertia
-response. In our `Page.init` function, we use the "component" field to determine which Elm page should be rendered.
+response. In our `Pages.init` function, we use the "component" field to determine which Elm page should be rendered.
 
 The page object includes the following four properties:
 
