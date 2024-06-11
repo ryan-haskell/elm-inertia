@@ -1,5 +1,6 @@
 import path from 'path'
 import { Files } from './_files.js'
+import { readFile } from 'fs/promises'
 
 const template = (pageModule = '', pageFolder) => `
 module ${pageFolder}.${pageModule} exposing
@@ -93,30 +94,30 @@ view shared url props model =
     }
 `.trimStart()
 
-export default async (userInput = '') => {
-  // 1. Check for presence of `src/Page` folder
-  let pagesFolder = path.join(process.cwd(), 'src', 'Page')
-  let foundPagesFolder = await Files.exists(pagesFolder)
+export default async (userInput = '') => {  
+  let firstSourceDirectory = await Files.attemptToGetSourceDirectory()
 
-  if (!foundPagesFolder) {
-    console.warn(`‼️ Could not find "src/Page" folder in the current directory.`)
-    return
+  if (!firstSourceDirectory) {
+    return false
   }
+
+  const pagesFolderName = 'Pages'
 
   // 2. Normalize the user input so it works with "." or "/"
   if (!userInput) {
     console.warn(`‼️ Please provide a name like "Dashboard" or "Organizations/Index"`)
-    return
+    return false
   }
   let pageModuleName = userInput
   if (userInput.includes('/')) {
     pageModuleName = userInput.split('/').join('.')
   }
 
-  // Create a new Page file
-  const pageFolder = 'Pages'
+  // Create a new page file
   await Files.createFile({
-    name: `src/${pageFolder}/${pageModuleName.split('.').join('/')}.elm`,
-    content: template(pageModuleName, pageFolder)
+    name: `${firstSourceDirectory}/${pagesFolderName}/${pageModuleName.split('.').join('/')}.elm`,
+    content: template(pageModuleName, pagesFolderName)
   })
+
+  return true
 }

@@ -87,7 +87,7 @@ elm-inertia init
 
 ### elm-inertia add
 
-Create a new page in the `src/Page` folder.
+Create a new page in the `src/Pages` folder.
 
 ```sh
 elm-inertia add Organizations/Edit
@@ -99,7 +99,7 @@ For convenience, this also runs `generate` after the page is created.
 
 ### elm-inertia generate
 
-Regenerate your `src/Page.elm` file. This file connects all pages in the `src/Page` folder to your application.
+Regenerate your `src/Pages.elm` file. This file connects all pages in the `src/Pages` folder to your application.
 
 ```
 elm-inertia generate

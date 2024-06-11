@@ -243,8 +243,9 @@ const toMsgCustomType = (pageModules = [], pageFolder) =>{
  * @param {string[]} pageModules 
  * @returns {string}
  */
-const toPageImports = (pageModules = [], pageFolder) => 
+const toPageImports = (pageModules = [], pageFolder) =>
   pageModules.concat(['Error404', 'Error500'])
+    .sort()
     .map(pageModule => `import ${pageFolder}.${pageModule}`)
     .join('\n')
 
@@ -382,17 +383,17 @@ const toSlashCase = (dotSeparatedString = '') =>
 
 
 export default async () => {
-  // 1. Check for presence of `src/Page` folder
-  let pagesFolder = path.join(process.cwd(), 'src', 'Page')
-  let foundPagesFolder = await Files.exists(pagesFolder)
+  // 1. Check elm.json for where to generate code
+  let firstSourceDirectory = await Files.attemptToGetSourceDirectory()
 
-  if (!foundPagesFolder) {
-    console.warn(`‼️ Could not find "src/Page" folder in the current directory.`)
+  if (!firstSourceDirectory) {
     return
   }
 
   // 2. List all Elm files in the pages folder
-  let pageFilepaths = await Files.listElmFilepathsInFolder(pagesFolder)
+  const pageFolderName = 'Pages'
+  const pageFolderFilepath = path.join(process.cwd(),...firstSourceDirectory.split('/'),pageFolderName)
+  let pageFilepaths = await Files.listElmFilepathsInFolder(pageFolderFilepath)
   let pageModuleNames = pageFilepaths
     .map(fp => fp.split(path.sep).join('.'))
     .filter(name => name !== 'Error404' && name !== 'Error500')
@@ -400,9 +401,8 @@ export default async () => {
 
     
   // Create a new Page file
-  const pageFolder = 'Pages'
   await Files.createFile({
-    name: `src/${pageFolder}.elm`,
-    content: template(pageModuleNames, pageFolder)
+    name: `${firstSourceDirectory}/${pageFolderName}.elm`,
+    content: template(pageModuleNames, pageFolderName)
   })
 }

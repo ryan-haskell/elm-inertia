@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const version = "1.0.2"
+const version = "1.0.3"
 
 import init from './cli/init.js'
 import add from './cli/add.js'
@@ -14,8 +14,9 @@ const main = async () => {
     case "init":
       return init()
     case "add":
-      await add(...inputs)
-      return generate()
+      let addedNewPage = await add(...inputs)
+      if (addedNewPage) return generate()
+      else return
     case "generate":
       return generate()
     case '--version':
@@ -26,9 +27,9 @@ const main = async () => {
         console.error(`
   Here are the available commands:
 
-    elm-inertia init .......... create a new project
-    elm-inertia add <page> .......... add a new page
-    elm-inertia generate ... regenerate src/Page.elm
+    elm-inertia init ........... create a new project
+    elm-inertia add <page> ........... add a new page
+    elm-inertia generate ... regenerate src/Pages.elm
 `)
       } else {
         console.error(`
@@ -36,9 +37,9 @@ const main = async () => {
 
   Here are the available commands:
 
-    elm-inertia init .......... create a new project
-    elm-inertia add <page> .......... add a new page
-    elm-inertia generate ... regenerate src/Page.elm
+    elm-inertia init ........... create a new project
+    elm-inertia add <page> ........... add a new page
+    elm-inertia generate ... regenerate src/Pages.elm
 `)
       }
   }

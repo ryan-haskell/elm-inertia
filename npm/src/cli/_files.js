@@ -155,11 +155,40 @@ function copyFolderRecursiveSync(source, target) {
   }
 }
 
+async function attemptToGetSourceDirectory () {
+  // 1. Attempt to read "elm.json" file in current folder
+  let elmJsonFilepath = join(process.cwd(), 'elm.json')
+  let elmJsonContents = undefined
+  try {
+    elmJsonContents = readFileSync(elmJsonFilepath, { encoding: 'utf-8' })
+  } catch (_) {
+    console.warn(`‼️ Could not find "elm.json" file in the current directory.`)
+    return undefined
+  }
+
+  // 2. Attempt to parse JSON
+  let firstSourceDirectory = undefined
+  try {
+    let elmJson = JSON.parse(elmJsonContents)
+    if (elmJson['source-directories'].length === 0) {
+      console.warn(`‼️ Could not find any source directories in your "elm.json" file.`)
+      return undefined
+    }
+    firstSourceDirectory = elmJson['source-directories'][0]
+  } catch (_) {
+    console.warn(`‼️ Could not parse JSON from the "elm.json" file.`)
+    return undefined
+  }
+
+  return firstSourceDirectory
+}
+
 export const Files = {
   createFile,
   createFolder,
   exists,
   listElmFilepathsInFolder,
   copyPasteFolder,
-  copyPasteFile
+  copyPasteFile,
+  attemptToGetSourceDirectory
 }
