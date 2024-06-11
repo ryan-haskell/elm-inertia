@@ -17,7 +17,7 @@ type Model
     = Model_Dashboard { props : Pages.Dashboard.Props, model : Pages.Dashboard.Model }
     | Model_Login { props : Pages.Login.Props, model : Pages.Login.Model }
     | Model_Error404 { model : Pages.Error404.Model }
-    | Model_Error500 { error : Json.Decode.Error, model : Pages.Error500.Model }
+    | Model_Error500 { info : Pages.Error500.Info, model : Pages.Error500.Model }
 
 
 type Msg
@@ -29,8 +29,8 @@ type Msg
 
 init : Shared.Model -> Url -> PageObject Value -> ( Model, Effect Msg )
 init shared url pageObject =
-    case pageObject.component of
-        "Dashboard" ->
+    case String.toLower pageObject.component of
+        "dashboard" ->
             initForPage shared url pageObject <|
                 { decoder = Pages.Dashboard.decoder
                 , init = Pages.Dashboard.init
@@ -38,7 +38,7 @@ init shared url pageObject =
                 , toMsg = Msg_Dashboard
                 }
 
-        "Login" ->
+        "login" ->
             initForPage shared url pageObject <|
                 { decoder = Pages.Login.decoder
                 , init = Pages.Login.init
@@ -89,7 +89,7 @@ update shared url pageObject msg model =
         ( Msg_Error500 pageMsg, Model_Error500 page ) ->
             let
                 ( pageModel, pageEffect ) =
-                    Pages.Error500.update shared url page.error pageMsg page.model
+                    Pages.Error500.update shared url page.info pageMsg page.model
             in
             ( Model_Error500 { page | model = pageModel }
             , Effect.map Msg_Error500 pageEffect
@@ -115,7 +115,7 @@ subscriptions shared url pageObject model =
                 |> Sub.map Msg_Error404
 
         Model_Error500 page ->
-            Pages.Error500.subscriptions shared url page.error page.model
+            Pages.Error500.subscriptions shared url page.info page.model
                 |> Sub.map Msg_Error500
 
 
@@ -135,7 +135,7 @@ view shared url pageObject model =
                 |> mapDocument Msg_Error404
 
         Model_Error500 page ->
-            Pages.Error500.view shared url page.error page.model
+            Pages.Error500.view shared url page.info page.model
                 |> mapDocument Msg_Error500
 
 
@@ -206,10 +206,14 @@ onPropsChangedForPage shared url pageObject page options =
 
         Err jsonDecodeError ->
             let
+                info : Pages.Error500.Info
+                info =
+                    { pageObject = pageObject, error = jsonDecodeError }
+
                 ( pageModel, pageEffect ) =
-                    Pages.Error500.init shared url jsonDecodeError
+                    Pages.Error500.init shared url info
             in
-            ( Model_Error500 { error = jsonDecodeError, model = pageModel }
+            ( Model_Error500 { info = info, model = pageModel }
             , Effect.map Msg_Error500 pageEffect
             )
 
@@ -238,9 +242,13 @@ initForPage shared url pageObject options =
 
         Err jsonDecodeError ->
             let
+                info : Pages.Error500.Info
+                info =
+                    { pageObject = pageObject, error = jsonDecodeError }
+
                 ( pageModel, pageEffect ) =
-                    Pages.Error500.init shared url jsonDecodeError
+                    Pages.Error500.init shared url info
             in
-            ( Model_Error500 { error = jsonDecodeError, model = pageModel }
+            ( Model_Error500 { info = info, model = pageModel }
             , Effect.map Msg_Error500 pageEffect
             )
