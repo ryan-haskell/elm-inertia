@@ -400,7 +400,7 @@ export default async () => {
 
     
   // Create a new Page file
-  const pageFolder = 'Page'
+  const pageFolder = 'Pages'
   await Files.createFile({
     name: `src/${pageFolder}.elm`,
     content: template(pageModuleNames, pageFolder)
