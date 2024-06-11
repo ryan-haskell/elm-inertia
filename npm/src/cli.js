@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const version = "1.0.3"
+const version = "1.0.4"
 
 import init from './cli/init.js'
 import add from './cli/add.js'

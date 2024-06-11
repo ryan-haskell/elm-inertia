@@ -265,7 +265,7 @@ const toInitBody = (pageModules = [], pageFolder) => {
   const separator = `\n\n        `
 
   const toCaseBranch = (pageModule = '') => {
-    return `"${toSlashCase(pageModule)}" ->
+    return `"${toSlashCase(pageModule).toLowerCase()}" ->
             initForPage shared url pageObject <|
                 { decoder = ${pageFolder}.${pageModule}.decoder
                 , init = ${pageFolder}.${pageModule}.init
@@ -274,7 +274,7 @@ const toInitBody = (pageModules = [], pageFolder) => {
                 }`
   }
 
-  return `    case pageObject.component of
+  return `    case String.toLower pageObject.component of
         ${pageModules.map(toCaseBranch).join(separator)}
 
         _ ->
