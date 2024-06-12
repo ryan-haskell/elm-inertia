@@ -22,6 +22,8 @@ module ${pageFolder}.${pageModule} exposing
 import Browser
 import Effect exposing (Effect)
 import Html exposing (..)
+import Html.Attributes as Attr
+import Html.Events
 import Json.Decode
 import Shared
 import Url exposing (Url)
