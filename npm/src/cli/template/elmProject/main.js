@@ -7,7 +7,7 @@ let app = createInertiaApp({
   init: Main.init,
   flags: {
     window: {
-      with: window.innerWidth,
+      width: window.innerWidth,
       height: window.innerHeight,
     }
   },

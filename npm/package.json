@@ -1,6 +1,6 @@
 {
   "name": "elm-inertia",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "The Elm adapter for Inertia.js!",
   "type": "module",
   "bin": "src/cli.js",
